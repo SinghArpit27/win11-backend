@@ -1,0 +1,103 @@
+version: '3.9'
+
+# Win11 Backend — local development stack.
+#
+# Mongo runs as a single-node replica set (`rs0`) because Phase 3's
+# wallet/ledger system uses `session.withTransaction()` which requires
+# a replica set member or mongos. A single-node RS is the standard
+# local-dev approximation of a production replica set.
+
+services:
+  api:
+    build:
+      context: .
+      target: runtime
+    container_name: win11-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - '${PORT:-4000}:4000'
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - win11-net
+
+  worker:
+    build:
+      context: .
+      target: runtime
+    container_name: win11-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    command: ['node', 'dist/queues/worker.js']
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - win11-net
+
+  mongo:
+    image: mongo:7
+    container_name: win11-mongo
+    restart: unless-stopped
+    # `--replSet rs0`     — enables replica-set mode (required for transactions).
+    # `--bind_ip_all`     — accept connections from other containers + the host.
+    command: ['mongod', '--replSet', 'rs0', '--bind_ip_all']
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      # Idempotent bootstrap:
+      #   1st run  → `rs.status()` throws → we call `rs.initiate({ _id: "rs0", ... })`.
+      #   later    → `rs.status()` returns ok → healthcheck passes immediately.
+      # We point the only member at `localhost:27017` because clients connect
+      # with `directConnection=true` and bypass topology discovery.
+      test:
+        - 'CMD-SHELL'
+        - |
+          mongosh --quiet --eval "
+            try {
+              rs.status().ok;
+            } catch (e) {
+              rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] }).ok;
+            }
+          " | grep -q 1
+      interval: 10s
+      timeout: 10s
+      start_period: 30s
+      retries: 30
+    networks:
+      - win11-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: win11-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    command: ['redis-server', '--appendonly', 'yes']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - win11-net
+
+volumes:
+  mongo-data:
+  redis-data:
+
+networks:
+  win11-net:
+    driver: bridge

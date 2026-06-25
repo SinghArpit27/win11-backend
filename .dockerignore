@@ -1,0 +1,15 @@
+node_modules
+dist
+coverage
+.env
+.env.*
+*.log
+.git
+.gitignore
+.eslintrc.json
+.prettierrc.json
+.husky
+tests
+README.md
+docker-compose.yml
+Dockerfile

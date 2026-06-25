@@ -1,0 +1,55 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module",
+    "project": "./tsconfig.json"
+  },
+  "plugins": ["@typescript-eslint", "import", "prettier"],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:import/typescript",
+    "prettier"
+  ],
+  "settings": {
+    "import/resolver": {
+      "typescript": { "project": "./tsconfig.json", "alwaysTryTypes": true },
+      "node": true
+    }
+  },
+  "rules": {
+    "prettier/prettier": "error",
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-unused-vars": [
+      "error",
+      { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }
+    ],
+    "@typescript-eslint/explicit-function-return-type": "off",
+    "@typescript-eslint/explicit-module-boundary-types": "off",
+    "@typescript-eslint/no-non-null-assertion": "warn",
+    "import/order": [
+      "error",
+      {
+        "groups": ["builtin", "external", "internal", "parent", "sibling", "index"],
+        "pathGroups": [
+          { "pattern": "@config/**", "group": "internal", "position": "before" },
+          { "pattern": "@common/**", "group": "internal", "position": "before" },
+          { "pattern": "@shared/**", "group": "internal", "position": "before" },
+          { "pattern": "@modules/**", "group": "internal", "position": "before" },
+          { "pattern": "@loaders/**", "group": "internal", "position": "before" },
+          { "pattern": "@queues/**", "group": "internal", "position": "before" },
+          { "pattern": "@sockets/**", "group": "internal", "position": "before" },
+          { "pattern": "@jobs/**", "group": "internal", "position": "before" },
+          { "pattern": "@/**", "group": "internal", "position": "before" }
+        ],
+        "pathGroupsExcludedImportTypes": ["builtin", "object"],
+        "newlines-between": "always",
+        "alphabetize": { "order": "asc", "caseInsensitive": true }
+      }
+    ]
+  },
+  "ignorePatterns": ["dist", "node_modules", "coverage", "*.config.js"]
+}
