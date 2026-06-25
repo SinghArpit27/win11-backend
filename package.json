@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon",
-    "build": "node ./node_modules/typescript/bin/tsc -p tsconfig.json --noCheck",
+    "build": "node ./node_modules/typescript/bin/tsc -p tsconfig.json --noCheck && node ./node_modules/tsc-alias/dist/bin/index.js -p tsconfig.json",
     "start": "node dist/server.js",
     "start:worker": "node dist/queues/worker.js",
     "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
@@ -48,10 +48,11 @@
     "stripe": "^22.3.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
+    "tsc-alias": "^1.8.17",
+    "typescript": "5.9.3",
     "uuid": "^10.0.0",
     "xss-clean": "^0.1.4",
-    "zod": "^3.23.8",
-    "typescript": "5.9.3"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
