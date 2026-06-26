@@ -590,7 +590,7 @@ class LeaderboardService {
   ): Promise<LeaderboardRowDTO[]> {
     const entryIds = zsetRows.map((r) => r.entryId);
     const entries = await ContestEntry.find({ _id: { $in: entryIds } })
-      .select({ _id: 1, userId: 1, teamId: 1 })
+      .select({ _id: 1, userId: 1, teamId: 1, entryNumber: 1 })
       .exec();
     const entryMap = new Map(entries.map((e) => [String(e._id), e]));
 
@@ -641,7 +641,7 @@ class LeaderboardService {
         entryId: z.entryId,
         userId: entry ? String(entry.userId) : '',
         teamId: entry ? String(entry.teamId) : '',
-        displayName: team?.name ?? userJson?.displayName ?? userJson?.username ?? 'Player',
+        displayName: userJson?.displayName ?? userJson?.username ?? team?.name ?? 'Player',
         avatarUrl: userJson?.avatarUrl ?? null,
         points: z.points,
         movement: history?.movement ?? RankMovement.NEW,
@@ -649,6 +649,7 @@ class LeaderboardService {
         pointsDelta: history?.pointsDelta ?? 0,
         projectedWinning: projected > 0 ? projected : null,
         isCurrentUser: forUserId !== null && entry !== undefined && String(entry.userId) === forUserId,
+        entryNumber: entry?.entryNumber ?? 1,
         badge: null,
       };
     });
