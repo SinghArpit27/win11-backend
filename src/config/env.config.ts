@@ -145,14 +145,16 @@ const envSchema = z.object({
   /** OTP delivery — `console` logs only (free dev); `fast2sms` sends real SMS in India. */
   OTP_PROVIDER: z.enum(['console', 'fast2sms']).default('console'),
   /**
-   * Fixed OTP for local/staging testing (e.g. `123456`). Ignored in production.
-   * Leave empty in production — real SMS provider sends random codes.
+   * Fixed OTP for testing (e.g. `123456`). Used when non-production, or when
+   * `OTP_ALLOW_FIXED_CODE=true` (test prod). Clear before real launch.
    */
   OTP_DEV_CODE: z
     .string()
     .regex(/^\d{6}$/, 'OTP_DEV_CODE must be exactly 6 digits')
     .optional()
     .default(''),
+  /** Allow `OTP_DEV_CODE` in production — test deployments only; set false at launch. */
+  OTP_ALLOW_FIXED_CODE: envBoolean(true),
   /** Fast2SMS API key — free trial at https://www.fast2sms.com */
   FAST2SMS_API_KEY: z.string().optional().default(''),
 });

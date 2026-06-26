@@ -26,7 +26,7 @@ class OtpService extends BaseService {
 
   private generateCode(): string {
     const devCode = env.OTP_DEV_CODE?.trim();
-    if (!isProduction && devCode) {
+    if (devCode && (!isProduction || env.OTP_ALLOW_FIXED_CODE)) {
       return devCode;
     }
 
