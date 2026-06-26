@@ -66,8 +66,26 @@ export const errorHandler: ErrorRequestHandler = (
     });
   }
 
+  const mongoErr = err as {
+    code?: number;
+    keyValue?: Record<string, unknown>;
+    name?: string;
+  };
+
+  if (
+    mongoErr?.name === 'MongoNetworkError' ||
+    mongoErr?.name === 'MongoServerSelectionError' ||
+    mongoErr?.name === 'MongoTimeoutError'
+  ) {
+    logger.error({ err, requestId: req.id }, 'MongoDB unavailable');
+    return sendFailure(res, {
+      statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+      code: ErrorCode.SERVICE_UNAVAILABLE,
+      message: 'Database temporarily unavailable',
+    });
+  }
+
   // Duplicate-key error from Mongo: signature is { code: 11000, keyValue: {...} }.
-  const mongoErr = err as { code?: number; keyValue?: Record<string, unknown> };
   if (mongoErr && mongoErr.code === 11000) {
     return sendFailure(res, {
       statusCode: HttpStatus.CONFLICT,

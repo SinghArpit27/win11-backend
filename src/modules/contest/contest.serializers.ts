@@ -172,6 +172,7 @@ const summaryFromDoc = (doc: HydratedDocument<IContest>): ContestSummaryDTO => {
     joinClosesAt: toIso(doc.joinClosesAt),
     publishedAt: toIso(doc.publishedAt),
     hasInviteCode: !!doc.inviteCode,
+    templateId: doc.templateId ? idStr(doc.templateId) : null,
     version: doc.version,
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
@@ -196,7 +197,6 @@ export const contestSerializer = {
       cancelledAt: toIso(doc.cancelledAt),
       cancellationReason: doc.cancellationReason ?? null,
       prizeSnapshot: prizeSnapshotDTO(doc.prizeSnapshot),
-      templateId: doc.templateId ? idStr(doc.templateId) : null,
       clonedFromId: doc.clonedFromId ? idStr(doc.clonedFromId) : null,
       match: matchSummary(ctx.match ?? null, {
         home: ctx.homeTeam ?? null,

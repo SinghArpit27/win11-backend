@@ -113,6 +113,8 @@ export interface ContestSummaryDTO {
   joinClosesAt: string | null;
   publishedAt: string | null;
   hasInviteCode: boolean;
+  /** Blueprint reference when spawned from a template. */
+  templateId: string | null;
   /** Optimistic-lock counter; FE uses it to detect stale snapshots. */
   version: number;
   createdAt: string;
@@ -123,7 +125,6 @@ export interface ContestDTO extends ContestSummaryDTO {
   cancelledAt: string | null;
   cancellationReason: string | null;
   prizeSnapshot: ContestPrizeSnapshotDTO;
-  templateId: string | null;
   clonedFromId: string | null;
   match: ContestMatchSummaryDTO | null;
   /**

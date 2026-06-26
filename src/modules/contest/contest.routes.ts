@@ -12,6 +12,7 @@ import {
   adminCancelContestController,
   adminCloneContestController,
   adminCreateContestController,
+  adminCreateContestsFromTemplateController,
   adminCreateContestTemplateController,
   adminCreatePrizeDistributionController,
   adminDeleteContestTemplateController,
@@ -38,6 +39,7 @@ import {
 import {
   adminContestCancelBodySchema,
   adminContestCreateBodySchema,
+  adminContestFromTemplateBodySchema,
   adminContestListQuerySchema,
   adminContestStatusBodySchema,
   adminContestUpdateBodySchema,
@@ -148,6 +150,14 @@ router.post(
   requireRoles(...ADMIN_ROLES),
   validate({ body: adminContestCreateBodySchema }),
   adminCreateContestController,
+);
+
+router.post(
+  '/admin/contests/from-template',
+  requireAuth,
+  requireRoles(...ADMIN_ROLES),
+  validate({ body: adminContestFromTemplateBodySchema }),
+  adminCreateContestsFromTemplateController,
 );
 
 router.get(

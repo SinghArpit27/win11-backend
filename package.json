@@ -18,6 +18,7 @@
     "test:integration:watch": "vitest --config vitest.config.ts",
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "seed:wallet": "ts-node -r tsconfig-paths/register --transpile-only src/seeds/wallet-credit.seed.ts",
+    "seed:sports": "ts-node -r tsconfig-paths/register --transpile-only src/seeds/sports-catalogue.seed.ts",
     "prepare": "node -e \"if (process.env.CI || process.env.RENDER || process.env.NODE_ENV === 'production') process.exit(0); try { require('child_process').execSync('husky install', { stdio: 'inherit' }); } catch (_) { process.exit(0); }\""
   },
   "engines": {

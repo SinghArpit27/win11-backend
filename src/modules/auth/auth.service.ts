@@ -6,6 +6,7 @@ import { AppConstants } from '@common/constants';
 import { ErrorCode } from '@common/constants/error-codes';
 import {
   AuditAction,
+  AuthProvider,
   ClientPlatform,
   OtpChannel,
   OtpPurpose,
@@ -14,13 +15,17 @@ import {
   UserStatus,
 } from '@common/enums';
 import {
+  AppError,
   BadRequestError,
   ConflictError,
   NotFoundError,
   UnauthorizedError,
 } from '@common/errors';
+import { HttpStatus } from '@common/constants';
 import { auditLogger, securityLogger } from '@common/logging';
 import { hashPassword, verifyPassword } from '@common/utils/password.util';
+import { normalizePhone } from '@common/utils/phone.util';
+import { generateGameUsernameSeed, generateUniqueUsername } from '@common/utils/username.util';
 
 import { BaseService } from '@shared/services/base.service';
 
@@ -29,11 +34,14 @@ import { userRepository } from '@modules/user/user.repository';
 import { walletService } from '@modules/wallet/wallet.service';
 
 import { otpService } from './otp.service';
+import { otpDeliveryService } from './otp-delivery.service';
 import { tokenService, type IssuedTokenPair } from './token.service';
 import type {
   ChangePasswordBody,
   ForgotPasswordBody,
   LoginBody,
+  PhoneSendOtpBody,
+  PhoneVerifyOtpBody,
   RequestOtpBody,
   ResetPasswordBody,
   SignupBody,
@@ -117,6 +125,9 @@ class AuthService extends BaseService {
     }
     if (input.phone && (await userRepository.findByPhone(input.phone))) {
       throw new ConflictError('Phone already registered', { field: 'phone' });
+    }
+    if (input.username && (await userRepository.findByUsername(input.username))) {
+      throw new ConflictError('Username already taken', { field: 'username' });
     }
 
     const passwordHash = await hashPassword(input.password);
@@ -483,7 +494,122 @@ class AuthService extends BaseService {
     return { changed: true };
   }
 
+  // ───────────────────────────────────────────── Phone OTP auth ───────────
+  async sendPhoneAuthOtp(
+    input: PhoneSendOtpBody,
+    req: Request,
+  ): Promise<{ expiresAt: Date; isExistingUser: boolean }> {
+    const phone = normalizePhone(input.phone);
+    const user = await userRepository.findByPhone(phone);
+
+    const issued = await otpService.issue({
+      userId: user?.id ?? null,
+      identifier: phone,
+      channel: OtpChannel.SMS,
+      purpose: OtpPurpose.PHONE_AUTH,
+      ip: req.ip ?? null,
+      userAgent: req.header('user-agent') ?? null,
+    });
+
+    await otpDeliveryService.sendSmsOtp(phone, issued.code);
+
+    await auditLogger.success({
+      actorId: user?.id ?? null,
+      action: AuditAction.OTP_REQUESTED,
+      metadata: { purpose: OtpPurpose.PHONE_AUTH, channel: OtpChannel.SMS },
+      req,
+    });
+
+    return {
+      expiresAt: issued.expiresAt,
+      isExistingUser: !!user,
+    };
+  }
+
+  async verifyPhoneAuthOtp(input: PhoneVerifyOtpBody, req: Request): Promise<AuthSuccess> {
+    const phone = normalizePhone(input.phone);
+    let user = await userRepository.findByPhone(phone);
+
+    await otpService.verify({
+      identifier: phone,
+      purpose: OtpPurpose.PHONE_AUTH,
+      code: input.code,
+    });
+
+    if (user) {
+      this.assertAccountCanLogin(user);
+      if (!user.phoneVerifiedAt) {
+        user = (await userRepository.markPhoneVerified(user.id)) ?? user;
+      } else if (user.status === UserStatus.PENDING_VERIFICATION) {
+        user = (await userRepository.markPhoneVerified(user.id)) ?? user;
+      }
+      await userRepository.resetFailedLogin(user.id, req.ip);
+    } else {
+      const username = await generateUniqueUsername(generateGameUsernameSeed(), async (candidate) => {
+        const existing = await userRepository.findByUsername(candidate);
+        return !!existing;
+      });
+
+      user = await userRepository.create({
+        email: null,
+        phone,
+        passwordHash: null,
+        authProvider: AuthProvider.PHONE,
+        displayName: null,
+        username,
+        roles: [UserRole.USER],
+        status: UserStatus.ACTIVE,
+        phoneVerifiedAt: new Date(),
+      });
+
+      try {
+        await walletService.ensureWalletForUser(user.id);
+      } catch (err) {
+        this.logger.warn({ err, userId: user.id }, 'wallet.provision_deferred');
+      }
+
+      await auditLogger.success({
+        actorId: user.id,
+        action: AuditAction.USER_SIGNUP,
+        resource: 'user',
+        resourceId: user.id,
+        metadata: { authProvider: AuthProvider.PHONE },
+        req,
+      });
+    }
+
+    const result = await this.openSession(user.id, user.roles, req);
+
+    await auditLogger.success({
+      actorId: user.id,
+      action: AuditAction.USER_LOGIN,
+      resource: 'user',
+      resourceId: user.id,
+      metadata: { authProvider: AuthProvider.PHONE },
+      req,
+    });
+
+    return { user: toPublicUser(user), tokens: result.tokens, sessionId: result.sessionId };
+  }
+
   // ──────────────────────────────────────────────────────── helpers ───────
+  private assertAccountCanLogin(
+    user: {
+      status?: UserStatus;
+      lockedUntil?: Date | null;
+    },
+  ): void {
+    if (user.status === UserStatus.SUSPENDED) {
+      throw new UnauthorizedError('Account suspended', ErrorCode.ACCOUNT_SUSPENDED);
+    }
+    if (user.status === UserStatus.DELETED) {
+      throw new UnauthorizedError('Account disabled', ErrorCode.ACCOUNT_DISABLED);
+    }
+    if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+      throw new UnauthorizedError('Account temporarily locked', ErrorCode.ACCOUNT_LOCKED);
+    }
+  }
+
   private async openSession(
     userId: string,
     roles: UserRole[],

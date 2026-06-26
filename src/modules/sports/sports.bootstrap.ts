@@ -101,34 +101,61 @@ const runSync = async (provider: SportsProviderKey, full: boolean): Promise<void
         { err, provider, statusChanged, event: 'sports.seed.api_unavailable' },
         'CricAPI sync failed — reconciled catalogue without mock fallback',
       );
-      return;
+    } else {
+      logger.warn(
+        { err, provider, fallback: SportsProviderKey.MOCK },
+        'Primary sports provider sync failed — falling back to mock refresh',
+      );
+
+      const report = full
+        ? await sportsIngestionService.syncAll({
+            source: SyncSource.SYSTEM_BOOT,
+            provider: SportsProviderKey.MOCK,
+            sport: Sport.CRICKET,
+          })
+        : await sportsIngestionService.refreshMatchCatalogue({
+            source: SyncSource.SYSTEM_BOOT,
+            provider: SportsProviderKey.MOCK,
+            sport: Sport.CRICKET,
+          });
+
+      logger.info(
+        {
+          event: 'sports.seed.fallback.complete',
+          provider: report.provider,
+          matches: report.matchesUpserted,
+          statusChanged: report.matchesStatusChanged,
+        },
+        'Sports boot refresh complete (mock fallback)',
+      );
     }
-
-    logger.warn(
-      { err, provider, fallback: SportsProviderKey.MOCK },
-      'Primary sports provider sync failed — falling back to mock refresh',
-    );
-
-    const report = full
-      ? await sportsIngestionService.syncAll({
-          source: SyncSource.SYSTEM_BOOT,
-          provider: SportsProviderKey.MOCK,
-          sport: Sport.CRICKET,
-        })
-      : await sportsIngestionService.refreshMatchCatalogue({
-          source: SyncSource.SYSTEM_BOOT,
-          provider: SportsProviderKey.MOCK,
-          sport: Sport.CRICKET,
-        });
-
-    logger.info(
-      {
-        event: 'sports.seed.fallback.complete',
-        provider: report.provider,
-        matches: report.matchesUpserted,
-        statusChanged: report.matchesStatusChanged,
-      },
-      'Sports boot refresh complete (mock fallback)',
-    );
   }
+
+  await ensureCataloguePopulated();
+};
+
+/** Guarantees dev/demo always has fixtures when the external feed is empty or unavailable. */
+const ensureCataloguePopulated = async (): Promise<void> => {
+  const count = await Match.estimatedDocumentCount();
+  if (count > 0) return;
+
+  logger.warn(
+    { event: 'sports.seed.mock_empty_catalogue' },
+    'Matches collection still empty — seeding mock cricket fixtures',
+  );
+
+  const report = await sportsIngestionService.syncAll({
+    source: SyncSource.SYSTEM_BOOT,
+    provider: SportsProviderKey.MOCK,
+    sport: Sport.CRICKET,
+  });
+
+  logger.info(
+    {
+      event: 'sports.seed.mock_complete',
+      provider: report.provider,
+      matches: report.matchesUpserted,
+    },
+    'Mock sports catalogue seeded',
+  );
 };

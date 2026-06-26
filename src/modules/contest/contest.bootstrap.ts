@@ -292,7 +292,6 @@ const seedContestsForUpcomingMatches = async (
           description: template.description,
           type: template.type,
           visibility: template.visibility,
-          inviteCode: null,
           status: ContestStatus.OPEN,
           publishedAt: new Date(),
           joinOpensAt: null,
@@ -386,12 +385,41 @@ export const reconcileContestJoinWindows = async (): Promise<number> => {
 };
 
 /**
+ * Public contests must omit `inviteCode` entirely — storing null breaks the
+ * sparse unique index (only one null allowed). Cleans legacy rows on boot.
+ */
+export const repairContestInviteCodes = async (): Promise<void> => {
+  try {
+    const indexes = await Contest.collection.indexes();
+    const inviteIndex = indexes.find((idx) => idx.name === 'inviteCode_1');
+    if (inviteIndex && !inviteIndex.sparse) {
+      await Contest.collection.dropIndex('inviteCode_1');
+      logger.info('contest.inviteCode.index.dropped-non-sparse');
+    }
+
+    const unset = await Contest.updateMany(
+      { inviteCode: null },
+      { $unset: { inviteCode: '' } },
+    );
+    if (unset.modifiedCount > 0) {
+      logger.info({ count: unset.modifiedCount }, 'contest.inviteCode.unset-null');
+    }
+
+    await Contest.syncIndexes();
+  } catch (err) {
+    logger.warn({ err }, 'contest.inviteCode.repair.failed');
+  }
+};
+
+/**
  * Idempotent entry point — called from the loader on boot. Failures
  * are logged but never abort startup (the rest of the app can still
  * function; admins can manually seed via the admin UI).
  */
 export const initContestSeeds = async (): Promise<void> => {
   try {
+    await repairContestInviteCodes();
+
     const prizes = await Promise.all(prizeSeeds.map(upsertPrizeDistribution));
     const prizeMap = new Map(prizes.map((p) => [p.name, p]));
     const templates = await Promise.all(

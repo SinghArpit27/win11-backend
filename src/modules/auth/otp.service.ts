@@ -2,6 +2,8 @@ import crypto from 'node:crypto';
 
 import { type Types } from 'mongoose';
 
+import { env, isProduction } from '@config/env.config';
+
 import { AppConstants } from '@common/constants';
 import { ErrorCode } from '@common/constants/error-codes';
 import { OtpChannel, OtpPurpose } from '@common/enums';
@@ -23,6 +25,11 @@ class OtpService extends BaseService {
   }
 
   private generateCode(): string {
+    const devCode = env.OTP_DEV_CODE?.trim();
+    if (!isProduction && devCode) {
+      return devCode;
+    }
+
     // 6-digit numeric code, leading zeros preserved.
     const n = crypto.randomInt(0, 1_000_000);
     return n.toString().padStart(AppConstants.OTP.LENGTH, '0');

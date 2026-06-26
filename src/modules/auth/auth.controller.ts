@@ -101,3 +101,25 @@ export const changePasswordController = asyncHandler(async (req: Request, res: R
   const result = await authService.changePassword(req.user.id, req.body, req);
   return sendSuccess(res, result);
 });
+
+export const phoneSendOtpController = asyncHandler(async (req: Request, res: Response) => {
+  const result = await authService.sendPhoneAuthOtp(req.body, req);
+  return sendSuccess(res, {
+    accepted: true,
+    expiresAt: result.expiresAt,
+    isExistingUser: result.isExistingUser,
+  });
+});
+
+export const phoneVerifyOtpController = asyncHandler(async (req: Request, res: Response) => {
+  const result = await authService.verifyPhoneAuthOtp(req.body, req);
+  setRefreshCookie(res, result.tokens.refreshToken);
+  return sendSuccess(res, {
+    user: result.user,
+    accessToken: result.tokens.accessToken,
+    refreshToken: result.tokens.refreshToken,
+    accessExpiresIn: result.tokens.accessExpiresIn,
+    refreshExpiresIn: result.tokens.refreshExpiresIn,
+    sessionId: result.sessionId,
+  });
+});

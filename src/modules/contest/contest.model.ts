@@ -166,11 +166,10 @@ const contestSchema = createBaseSchema<IContest>(
     },
     inviteCode: {
       type: String,
-      default: null,
       trim: true,
       uppercase: true,
       maxlength: 24,
-      // Sparse + unique — most contests don't have a code; PRIVATE ones do.
+      // Sparse + unique — omit the field on public contests (never store null).
       index: { unique: true, sparse: true },
     },
 

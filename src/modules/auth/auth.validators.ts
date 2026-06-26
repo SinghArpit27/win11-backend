@@ -95,3 +95,21 @@ export const changePasswordBodySchema = z.object({
   newPassword: passwordSchema,
 });
 export type ChangePasswordBody = z.infer<typeof changePasswordBodySchema>;
+
+/** Indian-friendly phone input — normalised to E.164 server-side. */
+export const indianPhoneInputSchema = z
+  .string()
+  .min(10, 'Enter a valid mobile number')
+  .max(16, 'Phone number too long')
+  .regex(/^(\+?\d[\d\s-]{8,14}\d)$/, 'Enter a valid mobile number');
+
+export const phoneSendOtpBodySchema = z.object({
+  phone: indianPhoneInputSchema,
+});
+export type PhoneSendOtpBody = z.infer<typeof phoneSendOtpBodySchema>;
+
+export const phoneVerifyOtpBodySchema = z.object({
+  phone: indianPhoneInputSchema,
+  code: z.string().regex(/^\d{6}$/, 'OTP must be 6 digits'),
+});
+export type PhoneVerifyOtpBody = z.infer<typeof phoneVerifyOtpBodySchema>;

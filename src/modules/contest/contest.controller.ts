@@ -23,6 +23,7 @@ import { contestJoinService } from './contest-join.service';
 import type {
   AdminContestCancelBody,
   AdminContestCreateBody,
+  AdminContestFromTemplateBody,
   AdminContestListQuery,
   AdminContestStatusBody,
   AdminContestUpdateBody,
@@ -270,6 +271,18 @@ export const adminCreateContestController = asyncHandler(
     const contest = await contestService.createContest(body, actor);
     const dto = await hydrateContestDoc(contest, null);
     sendCreated(res, dto);
+  },
+);
+
+export const adminCreateContestsFromTemplateController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const actor = actorOf(req);
+    const body = req.body as AdminContestFromTemplateBody;
+    const result = await contestService.createContestsFromTemplate(body, actor);
+    sendCreated(res, {
+      items: result.created.map((c) => contestSerializer.toSummary(c)),
+      skippedMatchIds: result.skippedMatchIds,
+    });
   },
 );
 

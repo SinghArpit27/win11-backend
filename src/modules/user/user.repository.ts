@@ -25,6 +25,10 @@ class UserRepository extends BaseRepository<IUser> {
     return query.exec();
   }
 
+  findByUsername(username: string): Promise<HydratedDocument<IUser> | null> {
+    return this.model.findOne({ username }).exec();
+  }
+
   findByIdentifier(
     identifier: string,
     includePassword = false,

@@ -27,12 +27,14 @@ import { contestCache } from './contest-cache';
 import { contestRepository } from './contest.repository';
 import type {
   AdminContestCreateBody,
+  AdminContestFromTemplateBody,
   AdminContestListQuery,
   AdminContestUpdateBody,
   ContestCloneBody,
   ContestListQuery,
 } from './contest.validators';
 import { contestEntryRepository } from './contest-entry.repository';
+import { contestTemplateService } from './contest-template.service';
 import { prizeDistributionService } from './prize-distribution.service';
 
 /**
@@ -151,7 +153,7 @@ class ContestService extends BaseService {
       description: body.description ?? null,
       type: body.type,
       visibility: body.visibility,
-      inviteCode,
+      ...(inviteCode ? { inviteCode } : {}),
       status: initialStatus,
       publishedAt: initialStatus === ContestStatus.OPEN ? new Date() : null,
       joinOpensAt: body.joinOpensAt ? new Date(body.joinOpensAt) : null,
@@ -196,6 +198,68 @@ class ContestService extends BaseService {
 
     await contestCache.invalidateContest(String(doc._id), String(doc.matchId));
     return doc;
+  }
+
+  /** Attach a saved template to one or more matches (idempotent per match). */
+  async createContestsFromTemplate(
+    body: AdminContestFromTemplateBody,
+    actor: { id: string | null; roles?: string[]; req?: Request },
+  ): Promise<{ created: ContestDoc[]; skippedMatchIds: string[] }> {
+    const template = await contestTemplateService.getById(body.templateId);
+    if (!template.isActive) {
+      throw new AppError(
+        'Contest template is inactive',
+        HttpStatus.BAD_REQUEST,
+        ErrorCode.CONTEST_TEMPLATE_NOT_FOUND,
+      );
+    }
+
+    const created: ContestDoc[] = [];
+    const skippedMatchIds: string[] = [];
+    const templateObjectId = new Types.ObjectId(body.templateId);
+
+    for (const matchId of body.matchIds) {
+      if (body.skipExisting) {
+        const existing = await Contest.findOne({
+          matchId: new Types.ObjectId(matchId),
+          templateId: templateObjectId,
+          isDeleted: { $ne: true },
+        })
+          .select({ _id: 1 })
+          .lean()
+          .exec();
+        if (existing) {
+          skippedMatchIds.push(matchId);
+          continue;
+        }
+      }
+
+      const doc = await this.createContest(
+        {
+          matchId,
+          templateId: body.templateId,
+          name: template.name,
+          description: template.description,
+          type: template.type,
+          visibility: template.visibility,
+          entryFee: template.entryFee,
+          prizePoolAmount: template.prizePoolAmount,
+          currency: template.currency,
+          totalSpots: template.totalSpots,
+          maxEntriesPerUser: template.maxEntriesPerUser,
+          isGuaranteed: template.isGuaranteed,
+          isPractice: template.type === ContestType.PRACTICE,
+          prizeDistributionId: template.prizeDistributionId
+            ? String(template.prizeDistributionId)
+            : null,
+          publishImmediately: body.publishImmediately,
+        },
+        actor,
+      );
+      created.push(doc);
+    }
+
+    return { created, skippedMatchIds };
   }
 
   async updateContest(
@@ -393,6 +457,8 @@ class ContestService extends BaseService {
     const created: ContestDoc[] = [];
 
     for (let i = 1; i <= body.count; i++) {
+      const cloneInviteCode =
+        source.visibility === ContestVisibility.PRIVATE ? this.generateInviteCode() : null;
       const cloneDoc = await contestRepository.create({
         matchId: targetMatchId,
         sport: match?.sport ?? source.sport,
@@ -401,10 +467,7 @@ class ContestService extends BaseService {
         description: source.description ?? null,
         type: source.type,
         visibility: source.visibility,
-        inviteCode:
-          source.visibility === ContestVisibility.PRIVATE
-            ? this.generateInviteCode()
-            : null,
+        ...(cloneInviteCode ? { inviteCode: cloneInviteCode } : {}),
         status: ContestStatus.DRAFT,
         publishedAt: null,
         joinOpensAt: source.joinOpensAt,

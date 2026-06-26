@@ -182,6 +182,15 @@ export const adminContestCreateBodySchema = z
     path: ['maxEntriesPerUser'],
   });
 
+/** Spawn one contest per match from a saved template blueprint. */
+export const adminContestFromTemplateBodySchema = z.object({
+  templateId: objectIdParam('templateId'),
+  matchIds: z.array(objectIdParam('matchId')).min(1).max(50),
+  publishImmediately: z.boolean().default(true),
+  /** When true, skip matches that already have a contest from this template. */
+  skipExisting: z.boolean().default(true),
+});
+
 export const adminContestUpdateBodySchema = z
   .object({
     name: z.string().trim().min(AppConstants.CONTEST.NAME.MIN_LENGTH).max(AppConstants.CONTEST.NAME.MAX_LENGTH),
@@ -288,6 +297,7 @@ export type ContestTemplateListQuery = z.infer<typeof contestTemplateListQuerySc
 export type ContestTemplateParams = z.infer<typeof contestTemplateParamsSchema>;
 
 export type AdminContestCreateBody = z.infer<typeof adminContestCreateBodySchema>;
+export type AdminContestFromTemplateBody = z.infer<typeof adminContestFromTemplateBodySchema>;
 export type AdminContestUpdateBody = z.infer<typeof adminContestUpdateBodySchema>;
 export type AdminContestStatusBody = z.infer<typeof adminContestStatusBodySchema>;
 export type AdminContestCancelBody = z.infer<typeof adminContestCancelBodySchema>;

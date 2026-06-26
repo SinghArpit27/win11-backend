@@ -78,13 +78,21 @@ export const requireAuth: RequestHandler = async (
 };
 
 /**
- * Optional auth — sets `req.user` if a valid token is provided, otherwise
- * silently continues. Use for endpoints that show enriched data to logged-in
- * callers but remain accessible to anonymous users (e.g. /matches feed).
+ * Optional auth — sets `req.user` when a valid token is provided.
+ *
+ * Public feeds (matches, contests) must stay reachable even when the caller
+ * sends a stale or invalid token. Auth failures are swallowed and the request
+ * proceeds anonymously instead of returning 401/500.
  */
-export const optionalAuth: RequestHandler = async (req, _res, next) => {
+export const optionalAuth: RequestHandler = (req, res, next) => {
   if (!req.header('authorization')) return next();
-  return requireAuth(req, _res, next);
+  requireAuth(req, res, (err) => {
+    if (err) {
+      delete req.user;
+      return next();
+    }
+    next();
+  });
 };
 
 /**

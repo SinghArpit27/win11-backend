@@ -2,7 +2,7 @@ import type { Request } from 'express';
 import type { FilterQuery } from 'mongoose';
 
 import { AuditAction, UserRole, UserStatus } from '@common/enums';
-import { ForbiddenError, NotFoundError } from '@common/errors';
+import { ConflictError, ForbiddenError, NotFoundError } from '@common/errors';
 import { auditLogger } from '@common/logging';
 
 import { BaseService } from '@shared/services/base.service';
@@ -36,7 +36,7 @@ class UserService extends BaseService {
         username: input.username,
         _id: { $ne: userId },
       });
-      if (taken) throw new NotFoundError('Username taken');
+      if (taken) throw new ConflictError('Username already taken', { field: 'username' });
     }
     const updated = await userRepository.updateById(userId, { $set: input });
     if (!updated) throw new NotFoundError('User');

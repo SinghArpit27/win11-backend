@@ -141,6 +141,20 @@ const envSchema = z.object({
   RAZORPAY_WEBHOOK_SECRET: z.string().optional().default(''),
   /** Allow direct manual deposit API (dev/test only). Production uses webhooks. */
   MANUAL_DEPOSIT_ENABLED: envBoolean(false),
+
+  /** OTP delivery — `console` logs only (free dev); `fast2sms` sends real SMS in India. */
+  OTP_PROVIDER: z.enum(['console', 'fast2sms']).default('console'),
+  /**
+   * Fixed OTP for local/staging testing (e.g. `123456`). Ignored in production.
+   * Leave empty in production — real SMS provider sends random codes.
+   */
+  OTP_DEV_CODE: z
+    .string()
+    .regex(/^\d{6}$/, 'OTP_DEV_CODE must be exactly 6 digits')
+    .optional()
+    .default(''),
+  /** Fast2SMS API key — free trial at https://www.fast2sms.com */
+  FAST2SMS_API_KEY: z.string().optional().default(''),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

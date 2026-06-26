@@ -16,6 +16,8 @@ import {
   forgotPasswordController,
   loginController,
   logoutController,
+  phoneSendOtpController,
+  phoneVerifyOtpController,
   refreshController,
   requestOtpController,
   resetPasswordController,
@@ -28,6 +30,8 @@ import {
   forgotPasswordBodySchema,
   loginBodySchema,
   logoutBodySchema,
+  phoneSendOtpBodySchema,
+  phoneVerifyOtpBodySchema,
   refreshBodySchema,
   requestOtpBodySchema,
   resetPasswordBodySchema,
@@ -51,6 +55,18 @@ const router = Router();
 
 router.post('/signup', signupRateLimiter, validate({ body: signupBodySchema }), signupController);
 router.post('/login', loginRateLimiter, validate({ body: loginBodySchema }), loginController);
+router.post(
+  '/phone/send-otp',
+  otpRequestRateLimiter,
+  validate({ body: phoneSendOtpBodySchema }),
+  phoneSendOtpController,
+);
+router.post(
+  '/phone/verify',
+  otpVerifyRateLimiter,
+  validate({ body: phoneVerifyOtpBodySchema }),
+  phoneVerifyOtpController,
+);
 router.post(
   '/refresh',
   refreshTokenRateLimiter,
