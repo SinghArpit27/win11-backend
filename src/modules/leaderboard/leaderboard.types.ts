@@ -30,6 +30,8 @@ export interface LeaderboardRowDTO {
   projectedWinning: number | null;
   /** True if this row is the requesting user's entry. */
   isCurrentUser: boolean;
+  /** 1-based team slot for this user in the contest — shown as T1, T2, … */
+  entryNumber: number;
   /** Hint for the UI badge: "C", "VC", "WK", etc — flexible. */
   badge: string | null;
 }
